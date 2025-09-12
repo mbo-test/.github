@@ -1,0 +1,43 @@
+name: Security Impact Nudge
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  comment-if-missing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR body for Security Impact
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            // Require a "Security Impact" section with at least one non-whitespace character after it
+            const hasSection = /##?\s*Security Impact/i.test(body);
+            const hasContent = /##?\s*Security Impact[\s\S]*?\n{0,2}(.{1,200})/i.test(body) &&
+                               !/##?\s*Security Impact[\s\S]*?(?:-?\s*\[x?\]\s*No security impact\b|\S{10,})/i.test(body) ? true : /##?\s*Security Impact[\s\S]*?(?:-?\s*\[x?\]\s*No security impact\b|\S{10,})/i.test(body);
+            core.setOutput('ok', Boolean(hasSection && hasContent));
+      - name: Create or update reminder comment
+        if: steps.check.outputs.ok != 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            👋 **Security Impact is missing or empty.**
+            Please update your PR description to include a *Security Impact* section, e.g.:
+
+            ```markdown
+            ## Security Impact
+            - [ ] No security impact
+            - [ ] Security impact documented below:
+              - [Describe data, authz/authn, secrets, network exposure, threat model deltas, rollback]
+            ```
+
+            _Context: PCI DSS 6.5.1 requires documenting the security impact of changes._
+          edit-mode: replace
