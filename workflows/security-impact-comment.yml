@@ -9,7 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  comment-if-missing:
+  validate:
+    name: Security Impact Check
     runs-on: ubuntu-latest
     steps:
       - name: Check PR body for Security Impact
@@ -22,9 +23,12 @@ jobs:
             const hasSection = /##?\s*Security Impact/i.test(body);
             const hasContent = /##?\s*Security Impact[\s\S]*?\n{0,2}(.{1,200})/i.test(body) &&
                                !/##?\s*Security Impact[\s\S]*?(?:-?\s*\[x?\]\s*No security impact\b|\S{10,})/i.test(body) ? true : /##?\s*Security Impact[\s\S]*?(?:-?\s*\[x?\]\s*No security impact\b|\S{10,})/i.test(body);
-            core.setOutput('ok', Boolean(hasSection && hasContent));
+            if (!(hasSection && hasContent)) {
+              core.setFailed("❌ Missing or empty 'Security Impact' section in PR description.");
+            }
+            
       - name: Create or update reminder comment
-        if: steps.check.outputs.ok != 'true'
+        if: failure()
         uses: peter-evans/create-or-update-comment@v4
         with:
           issue-number: ${{ github.event.pull_request.number }}
@@ -41,12 +45,4 @@ jobs:
 
             _Context: PCI DSS 6.5.1 requires documenting the security impact of changes._
           edit-mode: replace
-      - name: Validate Security Impact section
-        id: validate
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = context.payload.pull_request.body || "";
-            if (!/##?\s*Security Impact/i.test(body)) {
-              core.setFailed("❌ Missing 'Security Impact' section in PR description.");
             }
