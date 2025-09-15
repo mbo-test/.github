@@ -41,3 +41,12 @@ jobs:
 
             _Context: PCI DSS 6.5.1 requires documenting the security impact of changes._
           edit-mode: replace
+      - name: Validate Security Impact section
+      id: validate
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const body = context.payload.pull_request.body || "";
+          if (!/##?\s*Security Impact/i.test(body)) {
+            core.setFailed("❌ Missing 'Security Impact' section in PR description.");
+          }
